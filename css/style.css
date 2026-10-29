@@ -1,0 +1,803 @@
+/* ============================================================
+ *  style.css - Photo Story ♥
+ *  Soft, romantic, scrapbook-feeling.
+ *  Fonts: Caveat (handwritten) + Nunito (UI).
+ * ============================================================ */
+
+/* ── Reset & base ────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --accent:     #f4a0b5;
+  --bg-dark:    #1a1018;
+  --bg-card:    rgba(18, 12, 16, 0.58);
+  --text:       #fef6f0;
+  --text-muted: rgba(254, 246, 240, 0.65);
+  --font-hand:  'Caveat', cursive;
+  --font-ui:    'Nunito', sans-serif;
+  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-right:  env(safe-area-inset-right,  0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left,   0px);
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  /* 100dvh so URL bar on mobile doesn't shrink the page */
+  height: 100dvh;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-dark);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  /* Prevent text selection during swipes */
+  user-select: none;
+  -webkit-user-select: none;
+  /* Let JS handle all touch gestures */
+  touch-action: none;
+}
+
+canvas { display: block; }
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hidden { display: none !important; }
+
+/* ============================================================
+ *  LOADING SCREEN
+ * ============================================================ */
+#loading-screen {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-dark);
+  transition: opacity 0.8s ease;
+}
+#loading-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loader-content { text-align: center; }
+
+.loader-heart {
+  width: clamp(64px, 14vw, 120px);
+  height: auto;
+  margin-bottom: 1.4rem;
+}
+.loader-heart-outline { opacity: 0.35; }
+.loader-heart-fill    { transition: y 0.35s ease; }
+
+.loader-text {
+  font-family: var(--font-hand);
+  font-size: clamp(1rem, 2.8vw, 1.6rem);
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.loader-percent {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+ *  ORIENTATION WARNING  (portrait on small screens)
+ * ============================================================ */
+#orientation-warning {
+  position: fixed; inset: 0;
+  z-index: 10000;
+  display: none;             /* JS / media-query shows this */
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1.8rem;
+  background: var(--bg-dark);
+  text-align: center;
+  padding: 2rem;
+}
+#orientation-warning p {
+  font-family: var(--font-hand);
+  font-size: clamp(1.1rem, 3.5vw, 1.6rem);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+#orientation-warning strong { color: var(--accent); }
+
+.rotate-icon {
+  width: clamp(60px, 14vw, 100px);
+  animation: rotatePhone 2.6s ease-in-out infinite;
+}
+.rotate-icon svg { width: 100%; height: auto; }
+
+@keyframes rotatePhone {
+  0%, 100% { transform: rotate(0deg);  }
+  35%, 65%  { transform: rotate(90deg); }
+}
+
+/* Show warning + hide everything else in portrait */
+@media (orientation: portrait) and (max-width: 900px) {
+  #orientation-warning { display: flex !important; }
+  #intro-screen, #slideshow, #final-screen, #ui-layer,
+  #tap-canvas { visibility: hidden !important; }
+}
+
+/* ============================================================
+ *  INTRO SCREEN - floating envelope
+ * ============================================================ */
+#intro-screen {
+  position: fixed; inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1.4rem;
+  background: var(--bg-dark);
+  cursor: pointer;
+  overflow: hidden;
+}
+#intro-screen.exit {
+  animation: introExit 0.95s ease-in forwards;
+}
+@keyframes introExit {
+  to { opacity: 0; transform: scale(1.08); }
+}
+
+#intro-particles {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+.intro-title {
+  position: relative; z-index: 2;
+  font-family: var(--font-hand);
+  font-size: clamp(1.2rem, 3.5vw, 2.2rem);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  opacity: 0;
+  animation: fadeSlideUp 0.9s 0.4s ease forwards;
+}
+
+/* ── Envelope ───────────────────────────────────────────── */
+.envelope-wrapper {
+  position: relative; z-index: 2;
+  width: clamp(190px, 36vw, 320px);
+  aspect-ratio: 3 / 2;
+  perspective: 900px;
+  opacity: 0;
+  animation: fadeSlideUp 0.9s 0.65s ease forwards,
+             envelopeFloat 4s 1.55s ease-in-out infinite;
+}
+
+@keyframes envelopeFloat {
+  0%, 100% { transform: translateY(0px);   }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0px);  }
+}
+
+.envelope-body {
+  position: absolute; inset: 0;
+  background: linear-gradient(145deg, #f9e4d4, #f0d0bb);
+  border-radius: 6px;
+  box-shadow: 0 10px 36px rgba(0,0,0,0.4);
+  overflow: hidden;
+}
+
+/* Bottom V-shape (always visible) */
+.envelope-front {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 56%;
+  background: linear-gradient(175deg, #f5d5c0, #ecc4a8);
+  clip-path: polygon(0 42%, 50% 0%, 100% 42%, 100% 100%, 0 100%);
+  border-radius: 0 0 6px 6px;
+  z-index: 3;
+}
+
+/* Top flap - folds back on .open */
+.envelope-flap {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 56%;
+  background: linear-gradient(to bottom, #e8bfa5, #f0ccb4);
+  clip-path: polygon(0 0, 50% 100%, 100% 0);
+  transform-origin: top center;
+  transform-style: preserve-3d;
+  transition: transform 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 4;
+  backface-visibility: hidden;
+}
+.envelope-wrapper.open .envelope-flap {
+  transform: rotateX(180deg);
+}
+
+/* Letter that slides out */
+.envelope-letter {
+  position: absolute;
+  left: 10%; right: 10%; bottom: 10%;
+  height: 78%;
+  background: #fff8f0;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.85s 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
+}
+.envelope-wrapper.open .envelope-letter {
+  transform: translateY(-95%);
+}
+.letter-name {
+  font-family: var(--font-hand);
+  font-size: clamp(1rem, 3vw, 1.9rem);
+  color: #d0606e;
+  font-weight: 700;
+}
+
+.tap-hint {
+  position: relative; z-index: 2;
+  font-family: var(--font-hand);
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  color: var(--text-muted);
+  opacity: 0;
+  animation: fadeSlideUp 0.9s 1.1s ease forwards;
+}
+.heart-pulse {
+  display: inline-block;
+  color: var(--accent);
+  animation: heartPulse 1.3s ease-in-out infinite;
+}
+@keyframes heartPulse {
+  0%, 100% { transform: scale(1);    }
+  50%       { transform: scale(1.28); }
+}
+
+/* ============================================================
+ *  SLIDESHOW CONTAINER
+ * ============================================================ */
+#slideshow {
+  position: fixed; inset: 0;
+  z-index: 10;
+  display: none;               /* shown by JS */
+  /* Perspective on the container so all child rotations look 3-D */
+  perspective: 2200px;
+  perspective-origin: center center;
+  background: var(--bg-dark);
+}
+
+/* ── Individual page ─────────────────────────────────────── */
+.page {
+  position: absolute; inset: 0;
+  /* Must preserve 3-D so back face is visible */
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* Front face */
+.page-front {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+
+/* Back face - paper texture */
+.page-back {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: rotateY(180deg);
+  background: linear-gradient(135deg, #f6f1eb 0%, #ece5d8 50%, #e2d8cc 100%);
+}
+/* Horizontal ruled lines on back of paper */
+.page-back::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 29px,
+    rgba(180,160,140,0.07) 29px, rgba(180,160,140,0.07) 30px
+  );
+}
+
+/* ── Photo background ────────────────────────────────────── */
+.page-photo {
+  position: absolute; inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* Ken Burns applied via per-slide classes below */
+}
+/* Missing-image placeholder */
+.page-photo.missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2d1f2a, #1a1018) !important;
+  font-family: var(--font-ui);
+  font-size: clamp(0.75rem, 1.8vw, 1rem);
+  color: var(--text-muted);
+  text-align: center;
+  padding: 1rem;
+}
+
+/* ── Film grain ──────────────────────────────────────────── */
+.page-grain {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  mix-blend-mode: overlay;
+}
+
+/* ── Vignette ────────────────────────────────────────────── */
+.page-vignette {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.52) 100%);
+}
+
+/* ── Shadow overlay (cast by turning page above) ─────────── */
+.page-shadow {
+  position: absolute; inset: 0;
+  /* Gradient from the spine (left) toward centre */
+  background: linear-gradient(to right, rgba(0,0,0,0.5) 0%, transparent 55%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 20;
+  will-change: opacity;
+}
+
+/* ── Scrapbook corner stickers ───────────────────────────── */
+.page-corner {
+  position: absolute;
+  width: clamp(26px, 4.5vw, 46px);
+  height: clamp(26px, 4.5vw, 46px);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 8;
+}
+.page-corner svg { width: 100%; height: 100%; }
+.corner-tl { top:    clamp(8px, 1.8vw, 20px); left:  clamp(8px, 1.8vw, 20px); }
+.corner-tr { top:    clamp(8px, 1.8vw, 20px); right: clamp(8px, 1.8vw, 20px); transform: scaleX(-1); }
+.corner-bl { bottom: clamp(8px, 1.8vw, 20px); left:  clamp(8px, 1.8vw, 20px); transform: scaleY(-1); }
+.corner-br { bottom: clamp(8px, 1.8vw, 20px); right: clamp(8px, 1.8vw, 20px); transform: scale(-1,-1); }
+
+/* ── Bokeh / light-leak orbs (CSS animated) ──────────────── */
+.bokeh-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  animation: bokehFloat 12s ease-in-out infinite;
+  filter: blur(28px);
+  z-index: 5;
+}
+@keyframes bokehFloat {
+  0%   { opacity: 0;    transform: translateY(24px)  scale(0.8); }
+  20%  { opacity: 0.14; }
+  80%  { opacity: 0.14; }
+  100% { opacity: 0;    transform: translateY(-20px) scale(1.3); }
+}
+
+/* ── Particle canvas per slide ───────────────────────────── */
+.page-particles {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* ── Ken Burns animations (7 distinct zoom/pan combos) ────── */
+@keyframes kb1 { 0%{transform:scale(1)    translate(0,0)}      100%{transform:scale(1.15) translate(-2%,1%)} }
+@keyframes kb2 { 0%{transform:scale(1.15) translate(2%,0)}     100%{transform:scale(1)    translate(-1%,-1%)} }
+@keyframes kb3 { 0%{transform:scale(1)    translate(0,0)}      100%{transform:scale(1.2)  translate(1.5%,-1%)} }
+@keyframes kb4 { 0%{transform:scale(1.1)  translate(-3%,0)}    100%{transform:scale(1)    translate(2%,1.5%)} }
+@keyframes kb5 { 0%{transform:scale(1)    translate(2%,-1%)}   100%{transform:scale(1.12) translate(-2%,1%)} }
+@keyframes kb6 { 0%{transform:scale(1.08) translate(0,2%)}     100%{transform:scale(1.18) translate(-2%,-1%)} }
+@keyframes kb7 { 0%{transform:scale(1.2)  translate(0,0)}      100%{transform:scale(1)    translate(1%,1.5%)} }
+
+.kb-1 .page-photo { animation: kb1 22s ease-in-out infinite alternate; }
+.kb-2 .page-photo { animation: kb2 24s ease-in-out infinite alternate; }
+.kb-3 .page-photo { animation: kb3 20s ease-in-out infinite alternate; }
+.kb-4 .page-photo { animation: kb4 26s ease-in-out infinite alternate; }
+.kb-5 .page-photo { animation: kb5 22s ease-in-out infinite alternate; }
+.kb-6 .page-photo { animation: kb6 24s ease-in-out infinite alternate; }
+.kb-7 .page-photo { animation: kb7 21s ease-in-out infinite alternate; }
+
+/* ── Message card (frosted-glass love letter) ───────────── */
+.msg-card {
+  position: absolute;
+  z-index: 15;
+  /* Wide card - stretches across the bottom like a banner */
+  left:      clamp(20px, 4vw, 60px);
+  right:     clamp(20px, 4vw, 60px);
+  max-width: 780px;
+  margin:    0 auto;
+  padding:   clamp(16px, 2.2vw, 28px) clamp(20px, 3vw, 40px);
+  background: rgba(12, 8, 12, 0.68);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.09);
+  box-shadow:
+    0 8px 40px rgba(0,0,0,0.45),
+    0 0 0 1px rgba(255,255,255,0.03),
+    inset 0 1px 0 rgba(255,255,255,0.07);
+  /* Override left/right on corner variants */
+}
+
+/* Glowing accent border */
+.msg-card::before {
+  content: '';
+  position: absolute; inset: -1px;
+  border-radius: 21px;
+  background: linear-gradient(120deg, var(--accent) 0%, transparent 55%, var(--accent) 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Soft glow bloom behind the card */
+.msg-card::after {
+  content: '';
+  position: absolute; inset: -20px;
+  border-radius: 36px;
+  background: radial-gradient(ellipse at center, var(--accent), transparent 70%);
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ── Bottom positions (default - card sits at bottom centre) */
+.msg-card.pos-bottom-left,
+.msg-card.pos-bottom-right {
+  bottom: clamp(44px, 8vh, 88px);
+  padding-bottom: calc(clamp(16px,2.2vw,28px) + var(--safe-bottom));
+}
+/* ── Top positions */
+.msg-card.pos-top-left,
+.msg-card.pos-top-right {
+  top: clamp(44px, 8vh, 88px);
+  padding-top: calc(clamp(16px,2.2vw,28px) + var(--safe-top));
+}
+
+.msg-icon {
+  display: inline-block;
+  margin-right: 0.3em;
+  font-size: 1.1em;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
+.msg-text {
+  font-family:    var(--font-hand);
+  font-size:      clamp(1.15rem, 2.4vw, 1.7rem);
+  font-weight:    700;
+  line-height:    1.6;
+  color:          #fff;
+  text-shadow:    0 1px 8px rgba(0,0,0,0.4);
+  letter-spacing: 0.01em;
+}
+
+/* Typewriter word-by-word animation */
+.msg-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  margin-right: 0.28em;
+}
+.msg-word.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================================
+ *  UI LAYER (fixed overlays)
+ * ============================================================ */
+#ui-layer {
+  position: fixed; inset: 0;
+  z-index: 50;
+  pointer-events: none;   /* children opt in below */
+}
+#ui-layer > * { pointer-events: auto; }
+
+/* ── Progress hearts ─────────────────────────────────────── */
+#progress-bar {
+  position: fixed;
+  bottom: clamp(10px, 2.2vh, 22px);
+  left: 50%; transform: translateX(-50%);
+  display: flex; gap: clamp(6px, 1.2vw, 14px);
+  padding-bottom: var(--safe-bottom);
+  z-index: 55;
+}
+.progress-heart {
+  width:  clamp(12px, 1.8vw, 20px);
+  height: clamp(12px, 1.8vw, 20px);
+  color: rgba(255,255,255,0.25);
+  transition: color 0.4s ease, transform 0.3s ease;
+}
+.progress-heart.filled { color: var(--accent); }
+.progress-heart.active {
+  color: var(--accent);
+  animation: heartPulse 1.2s ease-in-out infinite;
+}
+.progress-heart svg { width: 100%; height: 100%; fill: currentColor; }
+
+/* ── Now-playing pill ────────────────────────────────────── */
+#now-playing {
+  display: none !important;
+  position: fixed;
+  top: clamp(10px, 2vh, 20px);
+  left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px 6px 8px;
+  padding-top: calc(6px + var(--safe-top));
+  background: rgba(20,14,18,0.62);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.07);
+  font-size: clamp(0.62rem, 1.2vw, 0.82rem);
+  color: var(--text-muted);
+  z-index: 55;
+  transition: opacity 0.4s ease;
+  white-space: nowrap;
+}
+
+.vinyl {
+  width: 22px; height: 22px;
+  background: radial-gradient(circle,
+    #555 0%, #555 28%,
+    #1e1e1e 29%, #1e1e1e 50%,
+    #3a3a3a 51%);
+  border-radius: 50%;
+  animation: spin 3s linear infinite;
+  flex-shrink: 0;
+  position: relative;
+}
+.vinyl.paused { animation-play-state: paused; }
+.vinyl-inner {
+  width:  7px; height: 7px;
+  background: var(--accent);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.music-note {
+  font-size: 1rem;
+  animation: noteBob 1.6s ease-in-out infinite;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+@keyframes noteBob {
+  0%, 100% { transform: translateY(0)   rotate(-8deg); }
+  50%       { transform: translateY(-4px) rotate(8deg);  }
+}
+.np-title {
+  max-width: clamp(120px, 24vw, 280px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Mute button ─────────────────────────────────────────── */
+#mute-btn {
+  position: fixed;
+  top:   clamp(10px, 2vh, 20px);
+  right: clamp(10px, 2vw, 22px);
+  padding-top:   var(--safe-top);
+  padding-right: var(--safe-right);
+  width: 42px; height: 42px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20,14,18,0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.07);
+  z-index: 55;
+  transition: background 0.25s ease;
+}
+#mute-btn:hover { background: rgba(40,28,36,0.75); }
+#mute-btn svg { width: 18px; height: 18px; }
+
+/* ── Swipe hint ──────────────────────────────────────────── */
+#swipe-hint {
+  position: fixed;
+  bottom: clamp(46px, 8.5vh, 86px);
+  left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-hand);
+  font-size: clamp(0.85rem, 1.8vw, 1.1rem);
+  color: var(--text-muted);
+  z-index: 55;
+  animation: swipeHintPulse 2.5s ease-in-out infinite;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+#swipe-hint.hide { opacity: 0; }
+
+.swipe-hand {
+  font-size: 1.5em;
+  animation: swipeHandSlide 2s ease-in-out infinite;
+}
+@keyframes swipeHandSlide {
+  0%, 100% { transform: translateX(4px);  }
+  50%       { transform: translateX(-16px); }
+}
+@keyframes swipeHintPulse {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 1;    }
+}
+
+/* ── Navigation arrows ───────────────────────────────────── */
+.arrow-btn {
+  position: fixed;
+  top: 50%; transform: translateY(-50%);
+  width:  clamp(30px, 3.8vw, 46px);
+  height: clamp(50px, 8vh,   76px);
+  font-size: clamp(1.4rem, 2.8vw, 2rem);
+  color: rgba(255,255,255,0.3);
+  background: rgba(20,14,18,0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 8px;
+  transition: color 0.25s ease, background 0.25s ease;
+  z-index: 55;
+}
+.arrow-btn:hover { color: #fff; background: rgba(40,28,36,0.5); }
+#arrow-left  { left:  clamp(4px, 1.2vw, 14px); padding-left:  var(--safe-left);  }
+#arrow-right { right: clamp(4px, 1.2vw, 14px); padding-right: var(--safe-right); }
+
+/* ============================================================
+ *  FINAL SCREEN
+ * ============================================================ */
+#final-screen {
+  position: fixed; inset: 0;
+  z-index: 10;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-dark);
+  overflow: hidden;
+}
+#final-screen.show { display: flex; }
+
+#final-particles {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+.final-content {
+  position: relative; z-index: 2;
+  text-align: center;
+  max-width: min(600px, 90vw);
+  padding: 2rem;
+  opacity: 0;
+  animation: fadeSlideUp 1s 0.4s ease forwards;
+}
+
+/* Big heart composed of tiny ♥ chars */
+.big-heart {
+  width:  clamp(90px, 18vw, 160px);
+  height: clamp(90px, 18vw, 160px);
+  margin: 0 auto 1.6rem;
+  position: relative;
+}
+.mini-heart {
+  position: absolute;
+  font-size: clamp(8px, 1.4vw, 14px);
+  color: var(--accent);
+  opacity: 0;
+  animation: miniHeartIn 0.5s ease forwards;
+  line-height: 1;
+}
+@keyframes miniHeartIn {
+  from { opacity: 0; transform: scale(0) rotate(-25deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0deg);   }
+}
+
+.final-message {
+  font-family: var(--font-hand);
+  font-size: clamp(0.95rem, 2.2vw, 1.45rem);
+  line-height: 1.75;
+  color: var(--text);
+  margin-bottom: 1.4rem;
+}
+.made-with-love {
+  font-size: clamp(0.7rem, 1.2vw, 0.88rem);
+  color: var(--text-muted);
+  margin-bottom: 1.6rem;
+}
+.replay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  font-family: var(--font-hand);
+  font-size: clamp(0.95rem, 1.8vw, 1.2rem);
+  color: var(--text);
+  background: rgba(244, 160, 181, 0.18);
+  border: 1px solid rgba(244, 160, 181, 0.4);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.3s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+.replay-btn:hover { background: rgba(244,160,181,0.32); transform: scale(1.04); }
+.replay-icon { animation: heartPulse 1.3s ease-in-out infinite; }
+
+/* ── Burst heart confetti ────────────────────────────────── */
+.burst-heart {
+  position: fixed;
+  pointer-events: none;
+  z-index: 200;
+  animation: burstFly 2.8s ease-out forwards;
+  will-change: transform, opacity;
+}
+@keyframes burstFly {
+  0%   { opacity: 1; transform: translate(0, 0) scale(1) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--bx), var(--by)) scale(0.25) rotate(var(--br)); }
+}
+
+/* ============================================================
+ *  TAP HEARTS CANVAS
+ * ============================================================ */
+#tap-canvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 60;
+}
+
+/* ============================================================
+ *  SCROLLBAR - hidden everywhere
+ * ============================================================ */
+::-webkit-scrollbar { display: none; }
+html { scrollbar-width: none; }
+
+/* ============================================================
+ *  REDUCED MOTION - respect user preference
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:        0.01ms !important;
+    animation-iteration-count: 1      !important;
+    transition-duration:       0.01ms !important;
+  }
+  /* Keep page layout stable - don't animate Ken Burns or bokeh */
+  .page-photo { animation: none !important; transform: none !important; }
+  .bokeh-orb  { display: none !important; }
+  .page-grain { display: none !important; }
+  /* Particles are blocked in JS via reducedMotion() check */
+}
